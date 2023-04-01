@@ -20,7 +20,7 @@ int verbose = 0;
 struct timeval start_ts;
 long int secs_random, fraq_random;
 
-typedef enum { tt_real, tt_constant, tt_constant_w_noise, tt_random, tt_backwards } tt_t;
+typedef enum { tt_real, tt_local, tt_constant, tt_constant_w_noise, tt_random, tt_backwards } tt_t;
 
 struct gen_header
 {
@@ -107,6 +107,20 @@ void set_time(u_int32_t *secs, u_int32_t *fraq, tt_t time_type)
 
 		*secs = htonl(ts.tv_sec + NTP_EPOCH);
 		*fraq = htonl(ts.tv_usec * 4295);
+	}
+	else if (time_type == tt_local)
+	{
+		if (gettimeofday(&ts, NULL) == -1)
+			error_exit("gettimeofday() failed");
+
+                struct tm * timeinfo;
+                timeinfo = gmtime(&ts.tv_sec);
+                timeinfo->tm_isdst = -1;
+                time_t utc_time = mktime(timeinfo);
+                long long local_time_offset = ts.tv_sec - utc_time;
+
+                *secs = htonl(ts.tv_sec + local_time_offset + NTP_EPOCH);
+                *fraq = htonl(ts.tv_usec * 4295);
 	}
 	else if (time_type == tt_constant || time_type == tt_constant_w_noise)
 	{
@@ -334,6 +348,7 @@ void help(void)
 	fprintf(stderr, "-D x         root dispersion\n");
 	fprintf(stderr, "-t x         what type of time to server:\n");
 	fprintf(stderr, "             - real: current system time\n");
+	fprintf(stderr, "             - local: current local time (time with timezone and DST applied)\n");
 	fprintf(stderr, "             - constant: the time this program started\n");
 	fprintf(stderr, "             - constant_noise: the time this program started with a little noise in the fraction\n");
 	fprintf(stderr, "             - random\n");
@@ -389,6 +404,8 @@ int main(int argc, char *argv[])
 			case 't':
 				if (strcasecmp(optarg, "real") == 0)
 					time_type = tt_real;
+				else if (strcasecmp(optarg, "local") == 0)
+					time_type = tt_local;
 				else if (strcasecmp(optarg, "constant") == 0)
 					time_type = tt_constant;
 				else if (strcasecmp(optarg, "constant_noise") == 0)
