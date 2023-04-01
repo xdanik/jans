@@ -1,5 +1,6 @@
 This program can be used to:
 - return the real system clock time
+- return the local clock time instead of UTC (basically force apply timezone and DST)
 - return invalid time.
 
 You might want to return invalid time when for example you've been in
